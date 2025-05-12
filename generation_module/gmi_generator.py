@@ -12,7 +12,8 @@ class GMIGenerator:
             model_name (str, optional): The LLM model to use, defaults to Qwen/Qwen3-235B-A22B-FP8
         """
         self.api_key = api_key
-        self.organization_id = organization_id
+        # Only set organization_id if it's provided and not a placeholder value
+        self.organization_id = organization_id if organization_id and not organization_id.startswith("YOUR_") else None
         self.model_name = model_name
         self.base_url = "https://api.gmi-serving.com/v1/chat/completions"
     
@@ -60,7 +61,7 @@ class GMIGenerator:
             "Content-Type": "application/json"
         }
         
-        # Add organization ID if provided
+        # Add organization ID only if it's valid
         if self.organization_id:
             headers["X-Organization-ID"] = self.organization_id
         
@@ -85,4 +86,6 @@ class GMIGenerator:
             if hasattr(e, 'response') and e.response:
                 print(f"Status code: {e.response.status_code}")
                 print(f"Response content: {e.response.text}")
-            raise 
+                
+            # Return a fallback message when API request fails
+            return f"Sorry, I couldn't generate a response due to an API error: {str(e)}", {"error": str(e)} 

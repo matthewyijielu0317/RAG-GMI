@@ -1,6 +1,9 @@
 import os
 from .loaders import PDFLoader, TXTLoader, DOCXLoader
-from .processors import TextSplitter
+from .processors import TextSplitter, LANGCHAIN_AVAILABLE
+
+if LANGCHAIN_AVAILABLE:
+    from .processors import LangChainTextSplitter
 
 class DocumentProcessor:
     """
@@ -8,14 +11,15 @@ class DocumentProcessor:
     Handles loading documents from different formats and processing their text.
     """
     
-    def __init__(self, chunk_size=1000, chunk_overlap=200, separator="\n"):
+    def __init__(self, chunk_size=1000, 
+                 splitter_type="recursive", **splitter_kwargs):
         """
         Initialize the document processor with text splitter settings.
         
         Args:
             chunk_size (int): Target size of each text chunk (in characters)
-            chunk_overlap (int): Number of characters to overlap between chunks
-            separator (str): Default separator for text splitting
+            splitter_type (str): Type of LangChain splitter to use ('recursive' or 'markdown')
+            **splitter_kwargs: Additional parameters for the text splitter (e.g., chunk_overlap)
         """
         # Initialize loaders for different document formats
         self.loaders = {
@@ -23,12 +27,12 @@ class DocumentProcessor:
             ".txt": TXTLoader(),
             ".docx": DOCXLoader()
         }
-        
+
         # Initialize text splitter
         self.text_splitter = TextSplitter(
             chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            separator=separator
+            splitter_type=splitter_type,
+            **splitter_kwargs
         )
         
     def process_document(self, file_path, include_metadata=False, recursive_splitting=True):

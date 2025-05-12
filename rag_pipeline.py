@@ -1,6 +1,7 @@
 import os
 import json
 from dotenv import load_dotenv
+from typing import Dict, Any
 
 # Try import with module prefix first, then fallback to direct import
 try:
@@ -18,26 +19,22 @@ class RAGPipeline:
     """
     
     def __init__(self, 
-                 chunk_size=1000, 
-                 chunk_overlap=200,
-                 embedding_model="all-MiniLM-L6-v2",
-                 enable_sparse=True,
-                 enable_dense=True,
-                 fusion_method="rrf",
-                 top_k=5,
-                 model_name="Qwen/Qwen3-235B-A22B-FP8"):
+                 chunk_size: int = 500,
+                 top_k: int = 5,
+                 embedding_model_name: str = "all-MiniLM-L6-v2",
+                 splitter_type: str = "recursive",
+                 chunk_overlap: int = 100,
+                 **splitter_kwargs):
         """
         Initialize the RAG pipeline.
         
         Args:
-            chunk_size (int): Size of text chunks for splitting
-            chunk_overlap (int): Overlap between chunks
-            embedding_model (str): Name of the embedding model
-            enable_sparse (bool): Whether to enable sparse retrieval
-            enable_dense (bool): Whether to enable dense retrieval
-            fusion_method (str): Method for fusing results ("rrf" or "linear")
-            top_k (int): Number of documents to retrieve
-            model_name (str): Name of the LLM model for generation
+            chunk_size: Size of document chunks
+            top_k: Number of chunks to retrieve
+            embedding_model_name: Name of the embedding model to use
+            splitter_type: Type of text splitter to use ('recursive' or 'markdown')
+            chunk_overlap: Number of characters to overlap between chunks
+            **splitter_kwargs: Additional parameters for the text splitter
         """
         # Load environment variables for API credentials
         load_dotenv()
@@ -45,24 +42,21 @@ class RAGPipeline:
         # Initialize modules
         self.document_processor = DocumentProcessor(
             chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap
+            splitter_type=splitter_type,
+            **splitter_kwargs
         )
         
         self.retrieval_engine = RetrievalEngine(
-            embedding_model_name=embedding_model,
-            enable_sparse=enable_sparse,
-            enable_dense=enable_dense
+            embedding_model_name=embedding_model_name,
+            enable_sparse=True,
+            enable_dense=True
         )
         
         self.generator = GMIGenerator(
             api_key=os.getenv("GMI_API_KEY"),
             organization_id=os.getenv("GMI_ORGANIZATION_ID"),
-            model_name=model_name
+            model_name=os.getenv("GMI_MODEL_NAME", "Qwen/Qwen3-235B-A22B-FP8")
         )
-        
-        # Set retrieval parameters
-        self.fusion_method = fusion_method
-        self.top_k = top_k
         
         # Store indexed documents
         self.documents = []
@@ -110,16 +104,17 @@ class RAGPipeline:
         for doc in self.documents:
             chunks = doc["chunks"]
             metadata = doc["metadata"]
+            chunk_count = len(chunks)
             
+            # Create base metadata once for all chunks from this document
+            base_metadata = {
+                "source": metadata.get("file_path", ""),
+                "file_name": metadata.get("file_name", os.path.basename(metadata.get("file_path", "")))
+            }
+            
+            # Add to collections
             all_chunks.extend(chunks)
-            
-            # Create metadata for each chunk
-            for _ in chunks:
-                chunk_metadata = {
-                    "source": metadata.get("file_path", ""),
-                    "file_name": metadata.get("file_name", os.path.basename(metadata.get("file_path", "")))
-                }
-                all_metadata.append(chunk_metadata)
+            all_metadata.extend([base_metadata.copy() for _ in range(chunk_count)])
         
         self.document_chunks = all_chunks
         
@@ -129,25 +124,24 @@ class RAGPipeline:
         print(f"Ingested {len(self.documents)} documents with {len(all_chunks)} chunks")
         return self.documents
         
-    def answer_question(self, question, temperature=0.7, max_tokens=2000):
+    def answer_question(self, question: str, top_k: int = 5, temperature: float = 0.7, max_tokens: int = 500) -> Dict[str, Any]:
         """
         Answer a question using the RAG pipeline.
         
         Args:
-            question (str): The user's question
-            temperature (float): Temperature for generation
-            max_tokens (int): Maximum tokens to generate
+            question: The question to answer
+            top_k: Number of chunks to retrieve
+            temperature: Temperature for generation (higher = more creative)
+            max_tokens: Maximum number of tokens to generate
             
         Returns:
-            dict: Dictionary with generated answer and intermediate results
+            Dictionary containing the answer and supporting information
         """
-        print(f"Answering question: {question}")
-        
         # Step 1: Retrieve relevant documents
         retrieved_chunks = self.retrieval_engine.retrieve(
             query=question,
-            top_k=self.top_k,
-            fusion_method=self.fusion_method
+            top_k=top_k,
+            fusion_method="rrf"
         )
         
         # Get just the text from the retrieval results

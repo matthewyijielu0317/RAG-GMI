@@ -1,9 +1,28 @@
+# Core dependencies
 requests==2.31.0
-python-dotenv==1.0.0
-PyMuPDF==1.23.8  # For PDF loading
-python-docx==1.0.1  # For DOCX loading
-sentence-transformers==2.2.2  # For embeddings
-faiss-cpu==1.7.4  # For vector storage
-rank-bm25==0.2.2  # For sparse retrieval
-nltk==3.8.1  # For text preprocessing
-numpy==1.24.3  # For numerical operations 
+python-dotenv>=1.0.0
+numpy==1.24.3
+
+# Retrieval (Vector Search)
+sentence-transformers>=2.5.1  # For embeddings and cross-encoder
+faiss-cpu==1.7.4  # Vector storage
+torch>=2.2.0  # Required by sentence-transformers
+
+# Text Processing and Splitting
+langchain-text-splitters>=0.0.1  # LangChain text splitters - primary chunking method
+tiktoken>=0.6.0  # For token counting in optimal text splitting
+nltk==3.8.1  # Text preprocessing for BM25
+
+# Document Processing
+PyMuPDF==1.23.8  # PDF loading
+python-docx>=1.1.0  # DOCX loading
+pypdf>=4.0.1  # Alternative PDF processing
+
+# Sparse Retrieval
+rank-bm25==0.2.2  # BM25 algorithm for keyword search
+
+# LLM integration
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-core>=0.1.10
+langchain-gmi>=0.0.1  # GMI Cloud API integration 
